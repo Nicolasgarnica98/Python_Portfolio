@@ -1,0 +1,357 @@
+import skimage.io as io
+import glob
+import os
+import skimage.io as io
+from skimage.color import rgb2gray
+from matplotlib import pyplot  as plt
+import numpy as np
+import cv2
+import scipy.ndimage as ndi
+from sklearn.metrics import jaccard_score
+import re
+import pandas as pd
+
+
+#/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#PUNTO 1
+
+imagen_prueba = os.path.join('data_mp3','star_binary.png')
+lista=glob.glob(os.path.join('data_mp3','blood_cell_dataset', 'noisy_data', '*.png'))
+gt=glob.glob(os.path.join('data_mp3','blood_cell_dataset', 'groundtruth', '*.png'))
+lista_b=[]
+lista_i = []
+kernel = np.ones((5,5),np.float32)/25
+#https://code.tutsplus.com/es/tutorials/image-filtering-in-python--cms-29202 LINK USADO
+
+#Organizacion de datos de 1 a 10
+df_gt = []
+df_img = []
+for i in range(0,len(gt)):
+    df_gt.append('1')
+    df_img.append('1')
+
+for i in range(0,len(gt)):
+    index_gt = int([float(index_gt) for index_gt in re.findall(r'-?\d+\.?\d*', gt[i][8:])][0])-1
+    index_lista = int([float(index_lista) for index_lista in re.findall(r'-?\d+\.?\d*', lista[i][8:])][0])-1
+    df_img[index_lista] = lista[i]
+    df_gt[index_gt] = gt[i]
+
+#Referencia: https://blog.finxter.com/how-to-extract-numbers-from-a-string-in-python/
+
+
+
+#Pre-procesamiento de las imágenes
+
+#Binarizacion Umbrales escogidos (Máscara)
+umbral_sup=0.6
+umbral_inf=0.3
+#Binarización de umbrales dobles (Máscara) Se utilizo el codigo realizado del miniproyecto 1 entrega 2
+def umbesco(img,umbral_sup,umbral_inf):
+    bina_esc=np.zeros((img.shape[0],img.shape[1]))
+    for f in range (0, img.shape[0], 1 ):
+        for j in range (0, img.shape[1], 1 ):
+
+            if img[f,j]>= umbral_inf and img[f,j]<=umbral_sup:
+                bina_esc[f,j]=True
+            else:
+                bina_esc[f,j]=False
+    return bina_esc
+#https://code.tutsplus.com/es/tutorials/image-filtering-in-python--cms-29202 LINK USADO
+
+#Carga imágenes
+for i in range (0,len(df_img)):
+    lista_i.append(cv2.imread(df_img[i]))
+    lista_b.append(cv2.imread(df_img[i]))
+
+for i in range(0,len(lista_b)):
+    lista_b[i]=cv2.medianBlur(lista_b[i], 3)
+    lista_b[i]=rgb2gray(lista_b[i])
+    umbral = umbesco(lista_b[i],umbral_sup,umbral_inf)#Umbral fue de 106 (Máscara)
+    new_img = lista_b[i] <= umbral
+    erosion_img = ndi.binary_erosion(new_img)
+    dilation_img = ndi.binary_dilation(erosion_img)
+    lista_b[i]= dilation_img
+
+#Pre-procesamiento imagen estrella
+img_prueba = cv2.imread(imagen_prueba)
+img_prueba = rgb2gray(img_prueba)
+umbral = 0.5
+bin_prueba = img_prueba >= umbral
+
+#Procesamiento adicinal para imágen de la estrella. Se le agregan bordes con valor de uno para tener un punto de partida de dilatación.
+for i in range(0,bin_prueba.shape[0]):
+    for j in range(0,bin_prueba.shape[0]):
+        if i == 0 or j == 0 or i==bin_prueba.shape[0]-1 or j==bin_prueba.shape[1]-1:
+            bin_prueba[i][j] = 1
+
+#Subplots
+input('(Figura 1) Press enter to continue...')
+fig, ax = plt.subplots(3,2)
+ax[0][0].set_title('Imagenes Originales', wrap=True, fontsize=10)
+ax[0][0].imshow(lista_i[1], cmap='gray')
+ax[0][0].axis('off')
+
+ax[0][1].set_title('Imagenes Preprocesadas', wrap=True, fontsize=10)
+ax[0][1].imshow(lista_b[1], cmap='gray')
+ax[0][1].axis('off')
+
+ax[1][0].imshow(lista_i[2], cmap='gray')
+ax[1][0].axis('off')
+
+ax[1][1].imshow(lista_b[2], cmap='gray')
+ax[1][1].axis('off')
+
+ax[2][0].imshow(lista_i[9], cmap='gray')
+ax[2][0].axis('off')
+
+ax[2][1].imshow(lista_b[9], cmap='gray')
+ax[2][1].axis('off')
+
+fig.savefig('subplotLAB.png')
+fig.tight_layout()
+plt.show()
+
+
+
+#/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#PUNTO 2
+
+#Funcion de rellenar huecos
+def MyHoleFiller_201715400_201713127(bin_img):
+    #Obtencion de la imagen complemento
+    imgC = 1-bin_img
+    #Kernel para la dilatación
+    kernel = np.array([[0,1,0],[1,1,1],[0,1,0]])
+    
+    #Obtencion del marcador del fondo, unicamente se tienen en cuenta los pixeles del borde.
+    def get_marcador():
+        img_binC = 1-bin_img
+        marcador = img_binC
+        for i in range(0,img_binC.shape[0]):
+            for j in range(0,img_binC.shape[1]):
+                if i == img_binC.shape[0]-1 or j == img_binC.shape[1]-1 or i == 0 or j == 0:
+                    marcador[i][j] = 1 - img_binC[i][j]
+                else:
+                    marcador[i][j] = 0
+        return marcador
+
+    h1 = get_marcador()
+
+    #Función de intersección entre los arrays
+    def Interseccion(marcador_,img_):
+        interseccion = np.zeros((img_.shape[0],img_.shape[1]))
+        for i in range(0,img_.shape[0]):
+            for j in range(0,img_.shape[1]):
+                if marcador_[i][j]==1 and marcador_[i][j]==imgC[i][j]:
+                    interseccion[i][j] = 1
+        return interseccion
+    
+    #Algorítmo de dilatacion geodésica
+    finish = False
+    contador = 0
+    while finish == False:
+        contador += 1
+        if contador==1:
+            print('Rellenando huecos... // Tardara unos minutos...')
+        temp = h1
+        h1 = ndi.binary_dilation(h1,structure=kernel)
+        h1 = Interseccion(h1,imgC)
+        if np.array_equal(h1,temp):
+            finish = True
+    whole_img = 1-h1
+    return whole_img
+
+#Subplot 2
+
+fig2, ax2 = plt.subplots(1,2)
+ax2[0].set_title('Imagen original')
+ax2[0].imshow(bin_prueba,'gray')
+ax2[0].axis('off')
+ax2[1].set_title('Imagen resultante')
+ax2[1].imshow(MyHoleFiller_201715400_201713127(bin_prueba),'gray')
+ax2[1].axis('off')
+input('(Figura 2) Press enter to continue...')
+plt.show()    
+
+#Relleno de todas las células de todas als imágenes
+img_rellenos = []
+for i in range(0,len(lista_b)):
+    img_rellenos.append(MyHoleFiller_201715400_201713127(lista_b[i]))
+
+
+#Subplot 3
+fig3, ax3 = plt.subplots(1,2)
+ax3[0].set_title('Imagen original')
+ax3[0].imshow(lista_b[0],'gray')
+ax3[0].axis('off')
+ax3[1].set_title('Imagen resultante')
+ax3[1].imshow(img_rellenos[0],'gray')
+ax3[1].axis('off')
+input('(Figura 3) Press enter to continue...')
+plt.show()    
+
+#Craga de las imiagenes de ground truth
+img_gt = []
+for i in range(0,len(gt)):
+    img_gt.append(cv2.imread(df_gt[i]))
+
+for i in range(0,len(img_gt)):
+    img_gt[i] = rgb2gray(img_gt[i])
+    umbral = 1
+    img_gt[i] = img_gt[i] >= umbral
+
+#Indice de Jaccard entre ground truth y las demas imágenes
+jaccard_np = []
+jaccard_pp = []
+for i in range(0,len(img_gt)):
+    jaccard_np.append(jaccard_score(img_gt[i].flatten(),lista_b[i].flatten()))
+    jaccard_pp.append(jaccard_score(img_gt[i].flatten(),img_rellenos[i].flatten()))
+
+print('')
+print('Jaccard - Sin pre-procesamiento\n')
+print(jaccard_np)
+print('')
+print('')
+print('Jaccard - pre-procesamiento\n')
+print(jaccard_pp)
+
+#Cálculo del hemtocrito
+
+def calc_hematocrito(df_mascara):
+    hematocrito = []
+    for i in range(0,len(df_mascara)):
+        pix_gr = np.sum(df_mascara[i].flatten())
+        pix_total = len(df_mascara[i].flatten())
+        hemat = pix_gr/pix_total
+        hematocrito.append(hemat)
+    return hematocrito
+
+hemat_an = calc_hematocrito(img_gt)
+hemat_p = calc_hematocrito(img_rellenos)
+
+print('Hematocrito anotaciones: \n', hemat_an)
+print('')
+print('Hematocrito predicciones: \n', hemat_p)
+
+
+#/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#PUNTO 3
+
+csv= pd.read_csv(os.path.join('data_mp3','detection_groundtruth.csv'))
+csv['annotations']=csv['annotations'].str.replace(","," ")
+csv['predictions']=csv['predictions'].str.replace(","," ")
+
+A=[]
+P=[]
+
+for i in range(0,100,1):
+    A.append(np.array(list(map(int, csv['annotations'][i].split()))))
+    csv['annotations'][i]=A[i]
+    P.append(np.array(list(map(int, csv['predictions'][i].split()))))
+    csv['predictions'][i]=P[i]
+
+csv=np.array(csv)
+
+#Umbrales de jacard
+J1=0.5
+J2=0.75
+J3=0.95   
+#Se generan las listas donde se guardaran los valores de presicion y cobertura para cada valor de jacard
+P1=[] #Presición
+P2=[]
+P3=[]
+C1=[] #Cobertura
+C2=[]
+C3=[]
+
+#Sigiendo la estructura planteada en la entrega 1 del miniproyecto 3 del semestre anterior, se realiza el siguiente bucle
+
+cot = 0
+for cont in np.linspace(0, 0.9, num=11):
+    
+    TP1=0
+    TP2=0
+    TP3=0
+    FP1=0
+    FP2=0
+    FP3=0
+    FN1=0
+    FN2=0
+    FN3=0   
+    for i in range(0,len(csv),1):
+        subcsv=csv[i]
+        if subcsv[2] >= cont:
+            A=subcsv[0]
+            P=subcsv[1]
+            #Se genera el valor de ancho y largo para petermitar los tamaños de los bounding box. Se toma el valor del ancho y el alto mayor
+              
+            if A[0]<=P[0]:
+                ancho=P[0]
+            else:
+                ancho=A[0]
+            if A[1]<=P[1]:
+                alto=P[1]
+            else:
+                alto=A[1]  
+            #se generan la matriz de ceros de acuerdo a los tamaños establecidos para la prediccion y la anotacion siguiendo el tamaño del mas grande
+            a=np.zeros((ancho+50,alto+50))
+            p=np.zeros((ancho+50,alto+50))
+            #se llenan con el valor de uno de acuerdo al tamaño de cada bounding box.
+            a[A[0]:A[0]+A[2]][A[1]:A[1]+A[3]]=1
+            p[P[0]:P[0]+P[2]][P[1]:P[1]+P[3]]=1
+            #se calcula el indice de jacard
+            J=np.sum(np.logical_and(p,a))/np.sum(np.logical_or(p,a))
+            #segun los indices de Jacard se almacenan los valores de TP,FP y FN
+            if J>=J1:
+                TP1=TP1+1  
+            else:
+                FP1=FP1+1
+                FN1=FN1+1
+            if J>=J2:
+                TP2=TP2+1  
+            else:
+                FP2=FP2+1
+                FN2=FN2+1
+            if J>=J3:
+                TP3=TP3+1  
+            else:
+                FP3=FP3+1
+                FN3=FN3+1
+        else: #si score es menor que umbral de score se le suma uno a los falsos negativos.
+            FN1 = FN1+1; FN2 = FN2+1; FN3 = FN3+1
+    P1.append(TP1/(TP1+FP1))
+    C1.append(TP1/(TP1+FN1))
+    P2.append(TP2/(TP2+FP2))
+    C2.append(TP2/(TP2+FN2))        
+    P3.append(TP3/(TP3+FP3))
+    C3.append(TP3/(TP3+FN3)) 
+        
+    cont = cont+0.1
+ 
+       
+plt.plot(C1, P1, label="I.J=0.5") #para sacar el plot de la grafica de precisión vs. cobertura para cada umbral de Jaccard.
+plt.plot(C2, P2, label="I.J=0.75")
+plt.plot(C3, P3, label="I.J= 0.95")
+plt.xlabel('RECALL')
+plt.ylabel('PRECISION')
+plt.legend()
+plt.savefig('graficaJ.png')
+plt.show()
+
+F1score1=[]
+F1score2=[]
+F1score3=[]
+for i in range (0,len(P1),1):
+    F1score1.append((2*P1[i]*C1[i])/(P1[i]+C1[i]))
+    F1score2.append((2*P2[i]*C2[i])/(P2[i]+C2[i]))
+    
+for i in range (0,len(P3)-2,1):
+    F1score3.append((2*P3[i]*C3[i])/(P3[i]+C3[i]))
+    
+print(max(F1score1))
+print(max(F1score2))
+print(max(F1score3))
+print('Average P:')
+print(np.average(P1))
+print(np.average(P2))
+print(np.average(P3))

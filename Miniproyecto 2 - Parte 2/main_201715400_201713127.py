@@ -1,0 +1,343 @@
+import os
+import glob
+import numpy as np
+import skimage.io as io
+import matplotlib.pyplot as plt
+from skimage.color import rgb2gray
+from skimage.exposure import match_histograms, equalize_hist
+import scipy.signal as ss
+from sklearn.metrics import mean_squared_error 
+import matplotlib.patches as patches
+from tqdm import tqdm
+
+# #PARTE 1
+
+# image1=io.imread(os.path.join('noisy1.jpg'),as_gray=True)
+# image2=io.imread(os.path.join('noisy2.jpg'),as_gray=True)
+# def gaussian_kernel(size, sigma=1):#Codigo que toca utilizar csegun el taller
+#     size = int(size) // 2
+#     x, y = np.mgrid[-size:size+1, -size:size+1]
+#     normal = 1 / (2.0 * np.pi * sigma**2)
+#     g =  np.exp(-((x**2 + y**2) / (2.0*sigma**2))) * normal
+#     return g
+# def MyCCorrelation_201715400_201713127(image, kernel, boundary_condition):
+    
+#     alto=int(((kernel.shape[0]-1)/2))
+#     ancho=int(((kernel.shape[1]-1)/2))
+#     if(boundary_condition=='fill'):
+#         img=np.pad(image,(alto,ancho),mode='constant', constant_values=0)
+#         imagenSalida=np.zeros(shape=image.shape) #matriz de ceros de la imagen de salida
+#         #Se realizan dos recorridos para recorrer cada fila y columna respectiva
+#         for i in range(0,image.shape[1],1):
+            
+#             for j in range(0,image.shape[0],1):
+#              imagenSalida[j,i]=sum(sum(img[0+j:kernel.shape[1]+j,0+i:kernel.shape[0]+i]*kernel))
+
+#         CCorrelation=imagenSalida
+#         return CCorrelation
+#     if(boundary_condition=='symm'):
+#         img=np.pad(image,(alto,ancho),'symmetric')
+#         imagenSalida=np.zeros(shape=image.shape) #matriz de ceros de la imagen de salida
+#         #Se realizan dos recorridos para recorrer cada fila y columna respectiva
+#         for i in range(0,image.shape[1],1):
+#             for j in range(0,image.shape[0],1):
+#              imagenSalida[j,i]=sum(sum(img[0+j:kernel.shape[1]+j,0+i:kernel.shape[0]+i]*kernel))
+
+#         CCorrelation=imagenSalida
+#         return CCorrelation
+    
+#     if boundary_condition=='valid':#no toma las fronteras; toma los pixeles de adentro de mi imagen.
+#         img=image
+        
+#         imagenSalida=np.zeros((img.shape[0]-int((kernel.shape[0]-1)/2)*2,img.shape[1]-int((kernel.shape[1]-1)/2)*2)) #matriz de ceros de la imagen de salida
+#         #Se realizan dos recorridos para recorrer cada fila y columna respectiva
+        
+#         for i in range(0,imagenSalida.shape[1],1):
+#             for j in range(0,imagenSalida.shape[0],1):
+#                  imagenSalida[j,i]=sum(sum(img[0+j:kernel.shape[1]+j,0+i:kernel.shape[0]+i]*kernel))
+        
+#         return(imagenSalida)
+# def MyAdaptMedian_201715400_201713127(gray_image, window_size, max_window_size):
+#     max_size=max_window_size
+#     ancho=int((window_size[0]-1)/2)  # ancho para la ventana
+#     alto=int((window_size[1]-1)/2)  #alto de la ventana
+#     # se establece un maximo de tamaño de ventana # se establecen altos y anchos basosados en el maximo    
+#     ancho_max=int((max_size[0]-1)/2) 
+#     alto_max=int((max_size[1]-1)/2)
+#     dif= ancho_max-ancho  #Diferencia entre el tamaño maximo de ventana y la ventana selecionada
+#     imagenSalida=np.zeros(shape=gray_image.shape)  # se genera la matriz de salida con su respctivo tamaño
+#     for i in range(alto_max,gray_image.shape[0]-alto_max): #Recorrido en i de la imagen con respecto al maximo
+#         for j in range(ancho_max, gray_image.shape[1]-ancho_max): #Recorrido en j de laimagen con respecto al path maximo
+#             incre=0 
+#             while incre<= dif:
+#                 alto_nuevo= int((window_size[0]+incre-1)/2) # se guenera el alto dinámico
+#                 ancho_nuevo= int((window_size[1]+incre-1)/2) # se genera el ancho dinámico
+#                 ventD=gray_image[(i-alto_nuevo):(i+alto_nuevo+1),(j-ancho_nuevo):(j+ancho_nuevo+1)] # se genera la ventana con respecto al ancho y alto dinamico     
+#                 #crieterios para la ventana     
+#                 min_ventD= np.min(ventD) # min de la ventana
+#                 max_ventD= np.max(ventD) # max de la ventana
+#                 med_ventD= np.median(ventD) # mediana de la venta
+#                 imagenSalida[i,j]= med_ventD # se le asigna inicialmente a cada pixel el valor de la mediana
+#                 A1=med_ventD-min_ventD #diferencia entre mediana y el minimo
+#                 A2=med_ventD-max_ventD # diferencia entre la mediana y el maximo
+#                 # dependiendo de los resultados anteriosres, hacer ajustes
+#                 if A1>0 and A2<0:       
+#                     B1=gray_image[i,j]-min_ventD #se le resta el minimo de la vetama al pixel
+#                     B2=gray_image[i,j]-max_ventD #se le resta el maximo de la vetama al pixel
+#                     break
+#                     if B1>0 and B2<0:
+#                         imagenSalida[i,j]= gray_image[i,j] # se deja el valor del pixel
+#                         break
+#                     else:
+#                         imagenSalida[i,j]= med_ventD # de lo contrario se le asigna la media
+#                         break
+#                 else:
+#                     incre=incre+2
+
+#     return(imagenSalida)
+# im_n1_1= MyAdaptMedian_201715400_201713127(image1,[3,3], [9,9])
+# im_n1_2= MyAdaptMedian_201715400_201713127(image1,[5,5], [9,9])
+# im_n1_3= MyAdaptMedian_201715400_201713127(image1,[9,9], [9,9])
+# im_n2_1= MyAdaptMedian_201715400_201713127(image2, [3,3], [9,9])
+# im_n2_2= MyAdaptMedian_201715400_201713127(image2, [5,5], [9,9])
+# im_n2_3= MyAdaptMedian_201715400_201713127(image2, [9,9], [9,9])
+# #Subplot
+# plt.figure(figsize = (20,8))
+# plt.subplot(241)
+# plt.imshow(image1, cmap='gray')
+# plt.title('Noisy 1', fontsize=28)
+# plt.axis('off')
+# plt.subplot(242)
+# plt.imshow(im_n1_1, cmap='gray')
+# plt.title('ventana inicial 3x3', fontsize=28)
+# plt.axis('off')
+# plt.subplot(243)
+# plt.imshow(im_n1_2, cmap="gray")
+# plt.title('Ventana inicial 5x5', fontsize=28)
+# plt.axis('off')
+# plt.subplot(244)
+# plt.imshow(im_n1_3, cmap="gray")
+# plt.title('Ventana inicial 9x9', fontsize=28)
+# plt.axis('off')
+# plt.subplot(245)
+# plt.imshow(image2, cmap="gray")
+# plt.title('Noisy 2', fontsize=28)
+# plt.axis('off')
+# plt.subplot(246)
+# plt.imshow(im_n2_1, cmap='gray')
+# plt.title('Ventana inicial 3x3', fontsize=28)
+# plt.axis('off')
+# plt.subplot(247)
+# plt.imshow(im_n2_2, cmap="gray")
+# plt.title('Ventana inicial 5x5', fontsize=28)
+# plt.axis('off')
+# plt.subplot(248)
+# plt.imshow(im_n2_3, cmap="gray")
+# plt.title('Ventana inicial 9x9', fontsize=28)
+# plt.axis('off')
+# input("Press Enter to continue...")
+# plt.savefig('subPlotMyAdaptMedian.jpg')
+# plt.show()
+# #prueba con Kernel Gaussiano
+# g1=MyCCorrelation_201715400_201713127(image1, gaussian_kernel(3, 2), 'valid')
+# g2=MyCCorrelation_201715400_201713127(image1,gaussian_kernel(5, 2), 'valid')
+# g3=MyCCorrelation_201715400_201713127(image1, gaussian_kernel(7, 2), 'valid')
+# g4=MyCCorrelation_201715400_201713127(image2, gaussian_kernel(3, 2), 'valid')
+# g5=MyCCorrelation_201715400_201713127(image2, gaussian_kernel(5, 2), 'valid')
+# g6=MyCCorrelation_201715400_201713127(image2, gaussian_kernel(7, 2), 'valid')
+# plt.figure(figsize = (80,35))
+# plt.subplot(231)
+# plt.imshow(g1, cmap='gray')
+# plt.title('Img.1 Kernel size=3 sigma=2', fontsize=100)
+# plt.axis('off')
+# plt.subplot(232)
+# plt.imshow(g2, cmap="gray")
+# plt.title('Img.1 Kernel size=5 sigma=2', fontsize=100)
+# plt.axis('off')
+# plt.subplot(233)
+# plt.imshow(g3, cmap="gray")
+# plt.title('Img.1 Kernel size=7 sigma=2', fontsize=100)
+# plt.axis('off')
+# plt.subplot(234)
+# plt.imshow(g4, cmap="gray")
+# plt.title('Img.2 Kernel size=3 sigma=2', fontsize=100)
+# plt.axis('off')
+# plt.subplot(235)
+# plt.imshow(g5, cmap="gray")
+# plt.title('Img.2 Kernel size=5 sigma=2', fontsize=100)
+# plt.axis('off')
+# plt.subplot(236)
+# plt.imshow(g6, cmap="gray")
+# plt.title('Img.2 Kernel size=7 sigma=2', fontsize=100)
+# plt.axis('off')
+# input("Press Enter to continue...")
+# plt.savefig('subPlotK.jpg')
+# plt.show()
+# #subPlot Mejores resultados
+# plt.figure(figsize = (80,50))
+# plt.subplot(121)
+# plt.imshow(im_n1_1, cmap='gray')
+# plt.title('Imagen 1 MyAdaptMedian', fontsize=120)
+# plt.axis('off')
+# plt.subplot(122)
+# plt.imshow(g6, cmap="gray")
+# plt.title('Imagen 2 Kernel size=7 sigma=2', fontsize=120)
+# plt.axis('off')
+# input("Press Enter to continue...")
+# plt.savefig('subPlotmejores.jpg')
+# plt.show()
+
+
+
+#PARTE BIOMÉDICA ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Carga de imágenes
+df = glob.glob(os.path.join('malaria_dataset/template','*.jpeg'))
+df_template = glob.glob(os.path.join('malaria_dataset/template','*.jpg'))
+df_template = df_template + df
+df_train = glob.glob(os.path.join('malaria_dataset/train','*.png'))
+df_test = glob.glob(os.path.join('malaria_dataset/test','*.png'))
+df_test = [df_test[0],df_test[2],df_test[3],df_test[4],df_test[5],df_test[6],df_test[7],df_test[8],df_test[9],df_test[1]]
+
+
+#Función de carga de las imágenes
+def cargar_imagenes(df_imagenes):
+    img_array = []
+    for i in range(len(df_imagenes)):
+        img_array.append(rgb2gray(io.imread(df_imagenes[i])))
+    return img_array
+
+img_train = cargar_imagenes(df_train)
+img_template = cargar_imagenes(df_template)
+img_test = cargar_imagenes(df_test)
+
+#Modificación de la función de cross-correlación
+def MyCCorrelation_201715400_201713127(image, kernel, boundary_condition):
+    
+    alto=int(((kernel.shape[0]-1)/2))
+    ancho=int(((kernel.shape[1]-1)/2))
+    prom_kernel = np.mean(kernel)
+    desvest_kernel = np.std(kernel)
+    if boundary_condition=='fill':
+        img=np.pad(image,(alto,ancho),mode='constant', constant_values=0)
+        imagenSalida=np.zeros(shape=image.shape) #matriz de ceros de la imagen de salida
+        #Se realizan dos recorridos para recorrer cada fila y columna respectiva
+        for i in tqdm(range(0,image.shape[1],1),desc='cross-correlación'):
+            
+            for j in range(0,image.shape[0],1):
+                #Creacion de la ventena de la imagen del pixel en la posición i,j
+                ventana = img[0+j:kernel.shape[1]+j,0+i:kernel.shape[0]+i]
+                #Promedio y desviacion estandar de dicha ventana
+                prom_ventana = np.mean(ventana)
+                desvest_ventana = np.std(ventana)
+                suma = 0
+                #Cálculo de sumatoria de: (f(x,x)- mean(f)) * (t(x,y) - mean(t)) ---> donde f = ventana de la imagen y t = kernel
+                for l in range(0,len(ventana.flatten())):
+                    actual = (ventana.flatten()[l]-prom_ventana)*(kernel.flatten()[l]-prom_kernel)
+                    suma = suma + actual
+
+                #Division del valor de la sumatoria entre las desviaciones estandar del kernel, de la ventana de la imagen y el número de veces que se realizó la sumatoria
+                if desvest_kernel*desvest_ventana != 0:
+                    imagenSalida[j,i]= (suma/(desvest_kernel*desvest_ventana))/(kernel.shape[0]*kernel.shape[1])
+                else:
+                    imagenSalida[j,i] = 0
+
+        normalized_correlation = imagenSalida
+    
+    return normalized_correlation
+
+
+#Pre-procesamiento de la imagen infected de Train
+def myImagePreprocessor(image, target_hist):
+    #Ecualizacion de la imagn original y las imagenes de referencia
+    eq_image = equalize_hist(image)
+    eq_refimage = equalize_hist(target_hist)
+    #Matching del histograma de la imagen ecualizada con el histograma de la imagen de referencia ecualizada
+    matched_image = match_histograms(eq_image,eq_refimage)
+    return matched_image
+
+img_pp = myImagePreprocessor(img_train[0],img_template[1])
+
+#Obtencion de los kernels
+rect = patches.Rectangle((30, 110), 25, 25, linewidth=1.5, edgecolor='r', facecolor='none')
+rect2 = patches.Rectangle((30, 110), 25, 25, linewidth=1.5, edgecolor='r', facecolor='none')
+
+def get_kernel(img):
+    kernel = np.zeros((25,25))
+    for i in range(0,25):
+        for j in range(0,25):
+            kernel[i][j] = img[i+110][j+30]
+    return kernel
+
+kernel1 = get_kernel(img_pp)
+kernel2 = get_kernel(img_train[0])
+
+#Plot de los kernels tomados
+input('Press enter to continue...')
+fig, ax = plt.subplots(2,2)
+fig.suptitle('Kernels escogidos')
+ax[0][0].set_title('Kernel 1')
+ax[0][0].imshow(img_pp,'gray')
+ax[0][0].add_patch(rect)
+ax[0][0].axis('off')
+ax[0][1].set_title('Kernel 2')
+ax[0][1].imshow(img_train[0], cmap='gray')
+ax[0][1].add_patch(rect2)
+ax[0][1].axis('off')
+ax[1][0].imshow(kernel1,'gray')
+ax[1][0].axis('off')
+ax[1][1].imshow(kernel2,'gray')
+ax[1][1].axis('off')
+plt.show()
+
+#Ecualizacion imagenes de Test
+img_test_pp = []
+for i in range(0,len(img_test)):
+    img_test_pp.append(myImagePreprocessor(img_test[i],img_template[1]))
+
+#Imagen de comparación kernel 1 (Train)
+resp_parasited1 = MyCCorrelation_201715400_201713127(img_train[0],kernel1,'fill')
+resp_parasited2 = MyCCorrelation_201715400_201713127(img_pp,kernel2,'fill')
+
+#Plot de las respuestas de cross-correlación a la imagen parasited de la carpeta Train
+input('Press enter to continue...')
+fig2, ax2 = plt.subplots(1,2)
+fig2.suptitle('Respuestas de Cross-correlación')
+ax2[0].set_title('Respuesta de cross\ncorrelación, Kernel 1')
+ax2[0].imshow(resp_parasited1,'gray')
+ax2[0].axis('off')
+ax2[1].set_title('Respuesta de cross\ncorrelación, Kernel 2')
+ax2[1].imshow(resp_parasited2,'gray')
+ax2[1].axis('off')
+plt.show()
+
+#Aplicación de cross-correlacion a imagenes de Test con kernel 1 y kernel 2
+pk1_img_test = []
+respuesta1 = []
+pk2_img_test_eq = []
+respuesta2 = []
+
+for i in tqdm(range(0,len(img_test)),desc='Procesamiento'):
+    pk1_img_test.append(MyCCorrelation_201715400_201713127(img_test[i],kernel2,'fill'))
+    respuesta1.append(np.max(pk1_img_test[i]))
+    pk2_img_test_eq.append(MyCCorrelation_201715400_201713127(img_test_pp[i],kernel2,'fill'))
+    respuesta2.append(np.max(pk2_img_test_eq[i]))
+
+print(respuesta1)
+print(respuesta2)
+
+#Clasificación
+clasificacion1 = []
+clasificacion2 = []
+for i in range(0,len(respuesta1)):
+    if respuesta1[i] > (0.67):
+        clasificacion1.append('Parasitazed')
+    else:
+        clasificacion1.append('Unparasited')
+    if respuesta2[i] > (0.67):
+        clasificacion2.append('Parasitazed')
+    else:
+        clasificacion2.append('Unparasited')
+gt = ['Parasitazed','Unparasited','Unparasited','Unparasited','Parasitazed','Unparasited','Parasitazed','Unparasited','Parasitazed','Parasitazed']
+print('Ground trurth: ', gt)
+print('Predicción con Kernel 1: ', clasificacion1)
+print('Predicción con Kernel 1 y pp imágenes: ', clasificacion2)
