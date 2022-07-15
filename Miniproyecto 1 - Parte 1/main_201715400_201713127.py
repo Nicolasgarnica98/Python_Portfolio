@@ -10,23 +10,23 @@ import nibabel
 import glob
 
 
-#PARTE TEORICA ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#Se descarga la imagen de internet 
+#Thershold binarization ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Image download
 r = requests.get("https://web.stanford.edu/class/ee368/Handouts/Lectures/Examples/11-Edge-Detection/Hough_Transform_Circles/coins.png")
 with open('monedas', 'wb') as f:
     f.write(r.content)
 
-#Se carga la imagen obtenida de internet
+#Image load
 img=io.imread(os.path.join('monedas'))
-flat_g=np.ndarray.flatten(img)# Se realiza el histograma de la imagen a escala de grises
-print(img.shape)#Dimensiones de la imagen
+flat_g=np.ndarray.flatten(img)# gray scaled image histogram
+print(img.shape)#checking image dimensions
 
 fig0 , ax0 = plt.subplots(1,2)
-ax0[0].imshow(img ,cmap='gray')# Se grafica la imagen descargada
-ax0[0].set_title('Monedas')
+ax0[0].imshow(img ,cmap='gray')
+ax0[0].set_title('Image')
 ax0[0].axis('off')
 ax0[1].hist(flat_g, bins=60, range=(0, 255),facecolor='blue',alpha=0.75, density=False)
-ax0[1].set_title('Histograma de Imagen Monedas')
+ax0[1].set_title('Image histogram')
 ax0[1].grid(True)
 fig0.savefig('subplot1.png')
 fig0.tight_layout()
@@ -34,24 +34,24 @@ fig0.show()
 
 
 
-#Metodo de Otsu
-umbral = threshold_otsu(img)#Umbral fue de 106 (Máscara)
-bina_otsu = img >= umbral
+#Otsu method for umbralization
+umbral = threshold_otsu(img)#106 is the threshold obtained
+bina_otsu = img >= umbral #applying binarization mask to image
 
-#Metodo de binarización con el percentil 60 de las intensidades (Máscara)
-per = np.percentile(img, 60)#Umbral fue de 39
-bina_per= img >= per
+#binarization using the 60 percentile
+per = np.percentile(img, 60)#threshold was 39
+bina_per= img >= per #applying binarization mask to image
 
-# Binarización con un umbral de 175 (Máscara)
+#Image binarization with threshold = 75
 bina_175=img >= 175
 
-#Binarizacion Umbrales escogidos (Máscara)
+#Binarization with chosen thresholds
 umbral_sup=250
 umbral_inf=60
 
 bina_esc=np.zeros((img.shape[0],img.shape[1]))
 
-#Binarización de umbrales dobles (Máscara)
+#Binarization with two thresholds -> mask generation
 for f in range (0, img.shape[0], 1 ):
         for j in range (0, img.shape[1], 1 ):
 
@@ -92,19 +92,21 @@ fig.savefig('subplotLAB.png')
 fig.tight_layout()
 plt.show()
 
-#PARTE BIOMÉDICA ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-#Carga de los datos
+
+#Tomography visualization ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#Data load
 lista=glob.glob(os.path.join('Heart_Data', 'Data', '*.nii.gz'))
 arch=nibabel.load(os.path.join('Heart_Data', 'Data', '4.nii.gz'))
-print(arch.header['intent_name'])# El paciente al que corresponde
-print(arch.header['descrip'])#número del corte actual 
-print(arch.shape)#Revisar/resolucion
-print(arch.header['slice_end'])#Cantidad de cortes paciente
+print(arch.header['intent_name'])# Pacient
+print(arch.header['descrip'])#Number of the slice 
+print(arch.shape)#Image resolution
+print(arch.header['slice_end'])#Number of slices per patient
 
-vol1=np.empty([512,512,38],dtype=np.single)#Paciente 3
-vol2=np.zeros([512,512,35],dtype=np.single)#Paciente 12
-vol3=np.zeros([512,512,45],dtype=np.single)#Paciente 14
+vol1=np.empty([512,512,38],dtype=np.single)#Patient 3
+vol2=np.zeros([512,512,35],dtype=np.single)#Patient 12
+vol3=np.zeros([512,512,45],dtype=np.single)#Patient 14
 
 for i in lista:
     a=nibabel.load(os.path.join(i))
